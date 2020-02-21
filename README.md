@@ -1,2 +1,2 @@
-# Planning2020
-Path planning repo for the 2020 block stacker robot. 
+# GT IEEE Robotics: Planning 2020
+A planning library for the IEEE SoutheastCon 2020 Competition. It is to be used by the Agent repo for SE2 planning.
