@@ -7,6 +7,7 @@ Last Modified: Ammar on 3/6
 
 from math import sin, cos, pi, atan2
 from collections import deque
+from simulator.utilities import Utilities
 
 
 # Utility functions
@@ -19,26 +20,35 @@ D = .2427
 
 V_SCALE = 2
 OMEGA_MAX_ALLOWED = 5
-GOAL_REACHED_MARGIN_SQUARED = 0.0508**2
 
 # Enum constants
 DIRECTION_FORWARD = 0
 DIRECTION_REVERSE = 1
 
-# A queue for all the waypoints
-wp_queue = deque([(1,0,DIRECTION_FORWARD)])
-
-
+# Should return the order the bins are to be picked in
+# Will likely be hardcoded
 def order_blocks(block_config):
     # TODO: Actually compute and return the ordering
     return block_config
 
 
-def reached(cur, goal):
-    # Error is simply x**2 + y**2
-    # We don't particularly care about theta
-    return GOAL_REACHED_MARGIN_SQUARED >= \
-        (goal[0]-cur[0])**2 + (goal[1]-cur[1])**2
+# Functions for whether we have met our goal
+# We define them here so we can explicitly write them in wp_queue
+def cf_bounds(minx=float('-inf'), maxx=float('inf'), miny=float('-inf'), maxy=float('inf')):
+    def ret(c):
+        return (minx <= c[0] and c[0] <= maxx) and (miny <= c[1] and c[1] <= maxy)
+    return ret
+def cf_dist(x, y, dist=.05):
+    def ret(c):
+        return dist**2 >= (c[0]-x)**2 + (c[1]-y)**2
+    return ret
+
+# A queue for all the waypoints
+# Format is (x, y, theta, doneFunc)
+wp_queue = deque([
+    (-.5661, 0,DIRECTION_FORWARD, cf_bounds(maxx=-.5561)),
+    (-.5461,.5,DIRECTION_FORWARD, cf_dist(-.5461,.5,.01))
+])
 
 
 # Utility function to convert between domains
@@ -82,10 +92,11 @@ def compute_wheel_velocities(cur):
     global wp_queue
     try:
         wp = wp_queue[0]
-        if reached(cur, wp):
+        if wp[3](cur):
             wp_queue.popleft()
             return (0,0)
         else:
+            Utilities.draw_debug_pose(position=(wp[0], wp[1], .05))
             d = (V_SCALE * (wp[0]-cur[0]), V_SCALE * (wp[1]-cur[1]))
             return xydot_to_w(d, cur[2], wp[2])
     except IndexError:
