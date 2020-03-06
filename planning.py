@@ -12,20 +12,23 @@ UTIL_SIGN = lambda x: x and (1, -1)[x < 0]
 
 # Planning constants for the robot
 R = .045
-L = .1
+L = .05
 D = .2427
 
-V_SCALE = .5
+V_SCALE = 10
 OMEGA_MAX_ALLOWED = 5
 
-GOAL_MARGIN_X = .0508
 CENTER_MARGIN_Y = .2038
+GOAL_MARGIN_LOCK_X = .01
+GOAL_MARGIN_UNLOCK_X = .0508
 GOAL_REACHED_MARGIN_SQUARED = 0.0508**2
 
 # Enum constants
 DIRECTION_FORWARD = 0
 DIRECTION_REVERSE = 1
 
+# State for whether or not we have locked onto a bin
+locked = False
 
 def order_blocks(block_config):
     # TODO: Actually compute and return the ordering
@@ -77,23 +80,31 @@ def match_pose_to_dir(v, direction):
 # Does exactly what it says
 # Depends on the current state of the robot for navigation
 def compute_wheel_velocities(current_pose, goal_pose):
+    global locked
 
     straight_waypoint = None
     drive_direction = DIRECTION_FORWARD
 
+    # Keep track of whether we have locked onto a bin
+    # Once we have locked on, we have to move farther to shake off the lock
+    goal_margin = GOAL_MARGIN_UNLOCK_X if locked else GOAL_MARGIN_LOCK_X
+
     # Three conditions to computing `straight_waypoint`
     # If we are within a certain radius x-wise of our goal, drive directly
     #   toward it
-    if abs(goal_pose[0] - current_pose[0]) <= GOAL_MARGIN_X:
+    if abs(goal_pose[0] - current_pose[0]) <= goal_margin:
         straight_waypoint = (goal_pose[0], goal_pose[1])
+        locked = True
     # Othwerwise, if we are within a certain distance of the centerline, go to
     #   the goal projected onto the centerline
     elif abs(current_pose[1]) <= CENTER_MARGIN_Y:
         straight_waypoint = (goal_pose[0], 0)
+        locked = False
     # Otherwise, reverse to the centerline
     else:
         straight_waypoint = (current_pose[0], -UTIL_SIGN(current_pose[1]) * 10)
         drive_direction = DIRECTION_REVERSE
+        locked = False
 
     # Reverse the control point if needed
     current_pose = match_pose_to_dir(current_pose, drive_direction)
