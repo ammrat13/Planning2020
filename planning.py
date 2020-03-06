@@ -5,51 +5,39 @@ Author:        Binit Shah
 Last Modified: Ammar on 3/5
 """
 
+# Planning constants for the robot
+R = .045
+L = .1
+D = .2427
+
+
 def order_blocks(block_config):
 	return block_config
+
 
 def reached(current_pose, goal_pos):
 	return False
 
-def compute_wheel_velocities(current_pose, goal_pos, dt):
-    R = .045
-    L = .1
-    D = .2427
 
-    BEZIERX = [-.93,2,-1,0]
-    BEZIERY = [0,0,1,-2]
+# Utility function to convert between domains
+def xydot_to_w(v, currentT):
 
-    currentTheta = 0.0
-    currentU = 0.0
+    xDot, yDot, tDot = v
 
-    while True:
-        jstates = p.getJointStates(self.robot, self.motor_links)
-        wl = jstates[0][1]
-        wr = jstates[1][1]
+    xDotC0 = R/2 * cos(currentT) - R*L/D * sin(currentT)
+    xDotC1 = R/2 * cos(currentT) + R*L/D * sin(currentT)
+    yDotC0 = R/2 * sin(currentT) + R*L/D * cos(currentT)
+    yDotC1 = R/2 * sin(currentT) - R*L/D * cos(currentT)
 
-        xDotC0 = R/2 * cos(currentTheta) - R*L/D * sin(currentTheta)
-        xDotC1 = R/2 * cos(currentTheta) + R*L/D * sin(currentTheta)
-        yDotC0 = R/2 * sin(currentTheta) + R*L/D * cos(currentTheta)
-        yDotC1 = R/2 * sin(currentTheta) - R*L/D * cos(currentTheta)
+    matDetInv = 1 / (xDotC0*yDotC1 - xDotC1*yDotC0)
 
-        xDot = xDotC0*wr + xDotC1*wl
-        yDot = yDotC0*wr + yDotC1*wl
-        thetaDot = (R/D)*wr + (-R/D)*wl
+    wR = matDetInv * ( yDotC1 * xDotTarg - xDotC1 * yDotTarg)
+    wL = matDetInv * (-yDotC0 * xDotTarg + xDotC0 * yDotTarg)
 
-        currentTheta += thetaDot * dt
-
-        dl = sqrt(xDot**2 + yDot**2) * dt
-        xDotTarg = 3*BEZIERX[3] * currentU**2 + 2*BEZIERX[2] * currentU + BEZIERX[1]
-        yDotTarg = 3*BEZIERY[3] * currentU**2 + 2*BEZIERY[2] * currentU + BEZIERY[1]
-        currentU += dl / sqrt(xDotTarg**2 + yDotTarg**2)
+    return (wR, wL)
 
 
-        matDetInv = 1 / (xDotC0*yDotC1 - xDotC1*yDotC0)
-        wrTarg = yDotC1*matDetInv*xDotTarg - xDotC1*matDetInv*yDotTarg
-        wlTarg = -yDotC0*matDetInv*xDotTarg + xDotC0*matDetInv*yDotTarg
-
-        wmax = max(abs(wrTarg), abs(wlTarg))
-        wrTarg /= max(1, wmax)
-        wlTarg /= max(1, wmax)
-
-        yield (wlTarg, wrTarg)
+# Does exactly what it says
+# Depends on the current state of the robot for navigation
+def compute_wheel_velocities(current_pose, goal_pos):
+    pass
