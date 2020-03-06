@@ -30,7 +30,7 @@ def order_blocks(block_config):
 
 def reached(current_pose, goal_pos):
     distance = sqrt((goal_pos[0] - current_pose[0]) ** 2 + (goal_pos[1] - current_pose[1]) ** 2)
-    theta_difference = (goal_pos[2] - current_pose[2]) % (2*pi)
+    theta_difference = abs((goal_pos[2] - current_pose[2]) % (2*pi))
     if distance <= GOAL_REACHED_MARGIN and theta_difference <= GOAL_THETA_MARGIN:
         return True
     return False
