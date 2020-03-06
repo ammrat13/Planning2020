@@ -90,7 +90,7 @@ def compute_wheel_velocities(current_pose, goal_pos):
 
     # Calculate xDot, yDot, tDot
     xDot = straight_waypoint[0] - control_point[0]
-    yDot = straight_waypoint[0] - control_point[0]
+    yDot = straight_waypoint[1] - control_point[1]
     tDot = (atan2(yDot, xDot) - current_pose[2]) % (2*pi)
     v = (xDot, yDot, tDot)
 
