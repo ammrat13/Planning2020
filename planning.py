@@ -5,10 +5,21 @@ Author:        Binit Shah
 Last Modified: Ammar on 3/5
 """
 
+from math import sin, cos, pi
+
+# Utility functions
+UTIL_SIGN = lambda x: x and (1, -1)[x < 0]
+
 # Planning constants for the robot
 R = .045
 L = .1
 D = .2427
+
+GOAL_MARGIN_X = .0508
+CENTER_MARGIN_Y = .2038
+
+DIRECTION_FORWARD = 0
+DIRECTION_REVERSE = 1
 
 
 def order_blocks(block_config):
@@ -20,14 +31,16 @@ def reached(current_pose, goal_pos):
 
 
 # Utility function to convert between domains
-def xydot_to_w(v, currentT):
+def xydot_to_w(v, currentT, direction):
 
     xDot, yDot, tDot = v
 
-    xDotC0 = R/2 * cos(currentT) - R*L/D * sin(currentT)
-    xDotC1 = R/2 * cos(currentT) + R*L/D * sin(currentT)
-    yDotC0 = R/2 * sin(currentT) + R*L/D * cos(currentT)
-    yDotC1 = R/2 * sin(currentT) - R*L/D * cos(currentT)
+    sign = (-1)**direction
+
+    xDotC0 = R/2 * cos(currentT) - sign*R*L/D * sin(currentT)
+    xDotC1 = R/2 * cos(currentT) + sign*R*L/D * sin(currentT)
+    yDotC0 = R/2 * sin(currentT) + sign*R*L/D * cos(currentT)
+    yDotC1 = R/2 * sin(currentT) - sign*R*L/D * cos(currentT)
 
     matDetInv = 1 / (xDotC0*yDotC1 - xDotC1*yDotC0)
 
@@ -36,8 +49,34 @@ def xydot_to_w(v, currentT):
 
     return (wR, wL)
 
+# Utility function just to turn us around
+def turn_around_pose(v):
+    x, y, t = v
+    return (x - 2*L*cos(t), y - 2*L*sin(t), (t + pi) % 2*pi)
+
 
 # Does exactly what it says
 # Depends on the current state of the robot for navigation
 def compute_wheel_velocities(current_pose, goal_pos):
-    pass
+    
+    straight_waypoint = None
+    drive_direction = DIRECTION_FORWARD
+
+    # Three conditions to computing `straight_waypoint`
+    # If we are within a certain radius x-wise of our goal, drive directly 
+    #   toward it
+    if abs(goal_pose[0] - current_pose[0]) <= GOAL_MARGIN_X:
+        straight_waypoint = (goal_pose[0], goal_pose[1])
+
+    # Othwerwise, if we are within a certain distance of the centerline, go to 
+    #   the goal projected onto the centerline
+    elif abs(current_pose[1]) <= CENTER_MARGIN_Y:
+        straight_waypoint = (goal_pose[0], 0)
+
+    # Otherwise, reverse to the centerline
+    else:
+        straight_waypoint = (current_pose[0], -UTIL_SIGN(current_pose[1]) * 10)
+        drive_direction = DIRECTION_REVERSE
+
+    # TODO: Actually return the wheel velocities
+    return None
