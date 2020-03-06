@@ -15,6 +15,7 @@ R = .045
 L = .1
 D = .2427
 
+V_SCALE = .5
 OMEGA_MAX_ALLOWED = 5
 
 GOAL_MARGIN_X = .0508
@@ -98,9 +99,8 @@ def compute_wheel_velocities(current_pose, goal_pose):
     current_pose = match_pose_to_dir(current_pose, drive_direction)
 
     # Calculate target xDot, yDot
-    # Only the direction matters since we will normalize wheel vels
-    xDotTarg = straight_waypoint[0] - current_pose[0]
-    yDotTarg = straight_waypoint[1] - current_pose[1]
+    xDotTarg = V_SCALE * (straight_waypoint[0] - current_pose[0])
+    yDotTarg = V_SCALE * (straight_waypoint[1] - current_pose[1])
 
     # Convert to wheel velocities
     # Return because the method will normalize
