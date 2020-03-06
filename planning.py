@@ -31,27 +31,24 @@ def order_blocks(block_config):
     return block_config
 
 
-def reached(current_pose, goal_pos):
+def reached(current_pose, goal_pose):
     # Error is simply x**2 + y**2
     # We don't particularly care about theta
-    return GOAL_REACHED_MARGIN_SQUARED >= 
-        (goal_pos[0]-current_pose[0])**2 + (goal_pos[1]-current_pose[1])**2
+    return GOAL_REACHED_MARGIN_SQUARED >= \
+        (goal_pose[0]-current_pose[0])**2 + (goal_pose[1]-current_pose[1])**2
 
 
 # Utility function to convert between domains
 def xydot_to_w(v, currentT, direction):
 
     # Component extraction
-    xDot, yDot = v
-
-    # Note L is negative if we are reversing
-    sign = (-1)**direction
+    xDotTarg, yDotTarg = v
 
     # Compute matrix coefficients
-    xDotC0 = R/2 * cos(currentT) - sign*R*L/D * sin(currentT)
-    xDotC1 = R/2 * cos(currentT) + sign*R*L/D * sin(currentT)
-    yDotC0 = R/2 * sin(currentT) + sign*R*L/D * cos(currentT)
-    yDotC1 = R/2 * sin(currentT) - sign*R*L/D * cos(currentT)
+    xDotC0 = R/2 * cos(currentT) + R*L/D * sin(currentT)
+    xDotC1 = R/2 * cos(currentT) - R*L/D * sin(currentT)
+    yDotC0 = R/2 * sin(currentT) - R*L/D * cos(currentT)
+    yDotC1 = R/2 * sin(currentT) + R*L/D * cos(currentT)
 
     # Invert the matrix
     matDetInv = 1 / (xDotC0*yDotC1 - xDotC1*yDotC0)
@@ -60,10 +57,10 @@ def xydot_to_w(v, currentT, direction):
 
     # Normalize omegas
     wMax = max(abs(wR), abs(wL))
-    wR *= OMEGA_MAX_ALLOWED / min(wMax, 1)
-    wL *= OMEGA_MAX_ALLOWED / min(wMax, 1)
+    wR *= OMEGA_MAX_ALLOWED / max(wMax, 1)
+    wL *= OMEGA_MAX_ALLOWED / max(wMax, 1)
 
-    return (wR, wL)
+    return (wR, wL) if direction == DIRECTION_FORWARD else (-wL, -wR)
 
 # Utility function just to turn us around
 def match_pose_to_dir(v, direction):
@@ -78,7 +75,7 @@ def match_pose_to_dir(v, direction):
 
 # Does exactly what it says
 # Depends on the current state of the robot for navigation
-def compute_wheel_velocities(current_pose, goal_pos):
+def compute_wheel_velocities(current_pose, goal_pose):
 
     straight_waypoint = None
     drive_direction = DIRECTION_FORWARD
