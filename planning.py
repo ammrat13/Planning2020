@@ -6,6 +6,8 @@ Last Modified: Ammar on 3/6
 """
 
 from math import sin, cos, pi, atan2
+from collections import deque
+
 
 # Utility functions
 UTIL_SIGN = lambda x: x and (1, -1)[x < 0]
@@ -15,15 +17,16 @@ R = .045
 L = .1
 D = .2427
 
+V_SCALE = 2
 OMEGA_MAX_ALLOWED = 5
-
-GOAL_MARGIN_X = .0508
-CENTER_MARGIN_Y = .2038
 GOAL_REACHED_MARGIN_SQUARED = 0.0508**2
 
 # Enum constants
 DIRECTION_FORWARD = 0
 DIRECTION_REVERSE = 1
+
+# A queue for all the waypoints
+wp_queue = deque([(1,0,DIRECTION_FORWARD)])
 
 
 def order_blocks(block_config):
@@ -31,24 +34,24 @@ def order_blocks(block_config):
     return block_config
 
 
-def reached(current_pose, goal_pose):
+def reached(cur, goal):
     # Error is simply x**2 + y**2
     # We don't particularly care about theta
     return GOAL_REACHED_MARGIN_SQUARED >= \
-        (goal_pose[0]-current_pose[0])**2 + (goal_pose[1]-current_pose[1])**2
+        (goal[0]-cur[0])**2 + (goal[1]-cur[1])**2
 
 
 # Utility function to convert between domains
-def xydot_to_w(v, currentT, direction):
+def xydot_to_w(v, curT, dire):
 
     # Component extraction
     xDotTarg, yDotTarg = v
 
     # Compute matrix coefficients
-    xDotC0 = R/2 * cos(currentT) + R*L/D * sin(currentT)
-    xDotC1 = R/2 * cos(currentT) - R*L/D * sin(currentT)
-    yDotC0 = R/2 * sin(currentT) - R*L/D * cos(currentT)
-    yDotC1 = R/2 * sin(currentT) + R*L/D * cos(currentT)
+    xDotC0 = R/2 * cos(curT) + R*L/D * sin(curT)
+    xDotC1 = R/2 * cos(curT) - R*L/D * sin(curT)
+    yDotC0 = R/2 * sin(curT) - R*L/D * cos(curT)
+    yDotC1 = R/2 * sin(curT) + R*L/D * cos(curT)
 
     # Invert the matrix
     matDetInv = 1 / (xDotC0*yDotC1 - xDotC1*yDotC0)
@@ -60,12 +63,12 @@ def xydot_to_w(v, currentT, direction):
     wR *= OMEGA_MAX_ALLOWED / max(wMax, 1)
     wL *= OMEGA_MAX_ALLOWED / max(wMax, 1)
 
-    return (wR, wL) if direction == DIRECTION_FORWARD else (-wL, -wR)
+    return (wR, wL) if dire == DIRECTION_FORWARD else (-wL, -wR)
 
 # Utility function just to turn us around
-def match_pose_to_dir(v, direction):
+def match_pose_to_dir(v, dire):
     # If the direction doesn't need to be changed, don't
-    if direction == DIRECTION_FORWARD:
+    if dire == DIRECTION_FORWARD:
         return v
     # Otherwise, move the control point and turn 180 degrees
     else:
@@ -74,34 +77,16 @@ def match_pose_to_dir(v, direction):
 
 
 # Does exactly what it says
-# Depends on the current state of the robot for navigation
-def compute_wheel_velocities(current_pose, goal_pose):
-
-    straight_waypoint = None
-    drive_direction = DIRECTION_FORWARD
-
-    # Three conditions to computing `straight_waypoint`
-    # If we are within a certain radius x-wise of our goal, drive directly
-    #   toward it
-    if abs(goal_pose[0] - current_pose[0]) <= GOAL_MARGIN_X:
-        straight_waypoint = (goal_pose[0], goal_pose[1])
-    # Othwerwise, if we are within a certain distance of the centerline, go to
-    #   the goal projected onto the centerline
-    elif abs(current_pose[1]) <= CENTER_MARGIN_Y:
-        straight_waypoint = (goal_pose[0], 0)
-    # Otherwise, reverse to the centerline
-    else:
-        straight_waypoint = (current_pose[0], -UTIL_SIGN(current_pose[1]) * 10)
-        drive_direction = DIRECTION_REVERSE
-
-    # Reverse the control point if needed
-    current_pose = match_pose_to_dir(current_pose, drive_direction)
-
-    # Calculate target xDot, yDot
-    # Only the direction matters since we will normalize wheel vels
-    xDotTarg = straight_waypoint[0] - current_pose[0]
-    yDotTarg = straight_waypoint[1] - current_pose[1]
-
-    # Convert to wheel velocities
-    # Return because the method will normalize
-    return xydot_to_w((xDotTarg, yDotTarg), current_pose[2], drive_direction)
+# Depends on the next waypoint
+def compute_wheel_velocities(cur):
+    global wp_queue
+    try:
+        wp = wp_queue[0]
+        if reached(cur, wp):
+            wp_queue.popleft()
+            return (0,0)
+        else:
+            d = (V_SCALE * (wp[0]-cur[0]), V_SCALE * (wp[1]-cur[1]))
+            return xydot_to_w(d, cur[2], wp[2])
+    except IndexError:
+        return (0,0)
