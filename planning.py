@@ -2,10 +2,10 @@
 """
 File:          planning.py
 Author:        Binit Shah
-Last Modified: Rishabh on 3/6
+Last Modified: Ammar on 3/6
 """
 
-from math import sin, cos, pi, atan2, sqrt
+from math import sin, cos, pi, atan2
 
 # Utility functions
 UTIL_SIGN = lambda x: x and (1, -1)[x < 0]
@@ -15,52 +15,65 @@ R = .045
 L = .1
 D = .2427
 
+OMEGA_MAX_ALLOWED = 5
+
 GOAL_MARGIN_X = .0508
 CENTER_MARGIN_Y = .2038
-GOAL_REACHED_MARGIN = 0.0508
-GOAL_THETA_MARGIN = pi / 12
+GOAL_REACHED_MARGIN_SQUARED = 0.0508**2
 
+# Enum constants
 DIRECTION_FORWARD = 0
 DIRECTION_REVERSE = 1
 
 
 def order_blocks(block_config):
+    # TODO: Actually compute and return the ordering
     return block_config
 
 
 def reached(current_pose, goal_pos):
-    distance = sqrt((goal_pos[0] - current_pose[0]) ** 2 + (goal_pos[1] - current_pose[1]) ** 2)
-    theta_difference = (goal_pos[2] - current_pose[2]) % (2*pi)
-    if theta_difference > pi:
-        theta_difference = abs(theta_difference - 2*pi)
-    if distance <= GOAL_REACHED_MARGIN and theta_difference <= GOAL_THETA_MARGIN:
-        return True
-    return False
+    # Error is simply x**2 + y**2
+    # We don't particularly care about theta
+    return GOAL_REACHED_MARGIN_SQUARED >= 
+        (goal_pos[0]-current_pose[0])**2 + (goal_pos[1]-current_pose[1])**2
 
 
 # Utility function to convert between domains
 def xydot_to_w(v, currentT, direction):
 
-    xDot, yDot, tDot = v
+    # Component extraction
+    xDot, yDot = v
 
+    # Note L is negative if we are reversing
     sign = (-1)**direction
 
+    # Compute matrix coefficients
     xDotC0 = R/2 * cos(currentT) - sign*R*L/D * sin(currentT)
     xDotC1 = R/2 * cos(currentT) + sign*R*L/D * sin(currentT)
     yDotC0 = R/2 * sin(currentT) + sign*R*L/D * cos(currentT)
     yDotC1 = R/2 * sin(currentT) - sign*R*L/D * cos(currentT)
 
+    # Invert the matrix
     matDetInv = 1 / (xDotC0*yDotC1 - xDotC1*yDotC0)
-
     wR = matDetInv * ( yDotC1 * xDotTarg - xDotC1 * yDotTarg)
     wL = matDetInv * (-yDotC0 * xDotTarg + xDotC0 * yDotTarg)
+
+    # Normalize omegas
+    wMax = max(abs(wR), abs(wL))
+    wR *= OMEGA_MAX_ALLOWED / min(wMax, 1)
+    wL *= OMEGA_MAX_ALLOWED / min(wMax, 1)
 
     return (wR, wL)
 
 # Utility function just to turn us around
-def turn_around_pose(v):
-    x, y, t = v
-    return (x - 2*L*cos(t), y - 2*L*sin(t), (t + pi) % (2*pi))
+def match_pose_to_dir(v, direction):
+    # If the direction doesn't need to be changed, don't
+    if direction == DIRECTION_FORWARD:
+        return v
+    # Otherwise, move the control point and turn 180 degrees
+    else:
+        x, y, t = v
+        return (x - 2*L*cos(t), y - 2*L*sin(t), (t + pi) % (2*pi))
 
 
 # Does exactly what it says
@@ -75,32 +88,23 @@ def compute_wheel_velocities(current_pose, goal_pos):
     #   toward it
     if abs(goal_pose[0] - current_pose[0]) <= GOAL_MARGIN_X:
         straight_waypoint = (goal_pose[0], goal_pose[1])
-
     # Othwerwise, if we are within a certain distance of the centerline, go to
     #   the goal projected onto the centerline
     elif abs(current_pose[1]) <= CENTER_MARGIN_Y:
         straight_waypoint = (goal_pose[0], 0)
-
     # Otherwise, reverse to the centerline
     else:
         straight_waypoint = (current_pose[0], -UTIL_SIGN(current_pose[1]) * 10)
         drive_direction = DIRECTION_REVERSE
 
-    # Determine the control point
-    currentL = L if drive_direction == 0 else -L
-    control_point = (current_pose[0] + currentL*cos(current_pose[2]), current_pose[1] + currentL*sin(current_pose[2]))
+    # Reverse the control point if needed
+    current_pose = match_pose_to_dir(current_pose, drive_direction)
 
-    # Calculate xDot, yDot, tDot
-    xDot = straight_waypoint[0] - control_point[0]
-    yDot = straight_waypoint[1] - control_point[1]
-    tDot = (atan2(yDot, xDot) - current_pose[2]) % (2*pi)
-    v = (xDot, yDot, tDot)
+    # Calculate target xDot, yDot
+    # Only the direction matters since we will normalize wheel vels
+    xDotTarg = straight_waypoint[0] - current_pose[0]
+    yDotTarg = straight_waypoint[1] - current_pose[1]
 
     # Convert to wheel velocities
-    wR, wL = xydot_to_w(v, current_pose[2], drive_direction)
-
-    # Normalize wheel velocities and return
-    wMax = max(wR, wL)
-    wR /= max(wMax, 1)
-    wL /= max(wMax, 1)
-    return wR, wL
+    # Return because the method will normalize
+    return xydot_to_w((xDotTarg, yDotTarg), current_pose[2], drive_direction)
