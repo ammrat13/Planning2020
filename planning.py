@@ -124,9 +124,9 @@ def queue_back(cur, side):
         cf_bounds(miny=0)
     ))
     wp_queue.append((
-        cur[0] + side*.35, 0, DIRECTION_REVERSE,
-        cf_bounds(minx=cur[0]+side*.25) if side > 0 else \
-        cf_bounds(maxx=cur[0]+side*.25)
+        cur[0] + side*.30, 0, DIRECTION_REVERSE,
+        cf_bounds(minx=cur[0]+side*.20) if side > 0 else \
+        cf_bounds(maxx=cur[0]+side*.20)
     ))
 # Queues going into a bin from a certain side
 def queue_turnin(p_bin, side):
@@ -151,8 +151,14 @@ def queue_bin(cur, n, off):
     side = SIDE_NEG if cur[0] < p_bin[0] else SIDE_POS
 
     if not (abs(cur[1]) > MARGIN_CENTER_BIN and UTIL_SIGN(p_bin[1]) == UTIL_SIGN(cur[1]) and abs(cur[0] - p_bin[0]) <= SAME_BIN_MARGIN_X):
-        if abs(cur[1]) >= MARGIN_CENTER_BIN:
+        if abs(cur[1]) >= MARGIN_CENTER_BIN and abs(cur[0] - p_bin[0]) <= SAME_BIN_MARGIN_X:
             queue_back(cur, side)
+        elif abs(cur[1]) >= MARGIN_CENTER_BIN:
+            wp_queue.append((
+                cur[0], -.2*UTIL_SIGN(cur[1]), DIRECTION_REVERSE,
+                cf_bounds(maxy=0) if cur[1] > 0 else \
+                cf_bounds(miny=0)
+            ))
         queue_turnin(p_bin, side)
     else:
         wp_queue.append((
