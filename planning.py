@@ -46,8 +46,12 @@ def cf_dist(x, y, dist=.05):
 # A queue for all the waypoints
 # Format is (x, y, theta, doneFunc)
 wp_queue = deque([
-    (-.5661, 0,DIRECTION_FORWARD, cf_bounds(maxx=-.5561)),
-    (-.5461,.5,DIRECTION_FORWARD, cf_dist(-.5461,.5,.01))
+    (-.6161,  0,DIRECTION_FORWARD, cf_bounds(maxx=-.5961)),
+    (-.5461, .5,DIRECTION_FORWARD, cf_dist(-.5461, .5,.01)),
+    (-.5461,-.2,DIRECTION_REVERSE, cf_bounds(maxy=0)),
+    (-.3561,  0,DIRECTION_REVERSE, cf_bounds(minx=-.3761)),
+    (-.6161,  0,DIRECTION_FORWARD, cf_bounds(maxx=-.5961)),
+    (-.5461,-.5,DIRECTION_FORWARD, cf_dist(-.5461,-.5,.01))
 ])
 
 
@@ -92,11 +96,12 @@ def compute_wheel_velocities(cur):
     global wp_queue
     try:
         wp = wp_queue[0]
+        cur = match_pose_to_dir(cur, wp[2])
+
         if wp[3](cur):
             wp_queue.popleft()
             return (0,0)
         else:
-            Utilities.draw_debug_pose(position=(wp[0], wp[1], .05))
             d = (V_SCALE * (wp[0]-cur[0]), V_SCALE * (wp[1]-cur[1]))
             return xydot_to_w(d, cur[2], wp[2])
     except IndexError:
