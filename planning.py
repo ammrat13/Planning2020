@@ -17,10 +17,15 @@ UTIL_SIGN = lambda x: x and (1, -1)[x < 0]
 R = .045
 L = .1
 D = .2427
+A_BS = .056
 
 MARGIN_CENTER_BIN = .2038
 V_SCALE = 2
 OMEGA_MAX_ALLOWED = 5
+
+GOAL_X = .9398
+BIN_XS = [-0.5461, -0.27305, 0.0, 0.27305, 0.5461]
+BIN_YBASE = .2667
 
 # Enum constants
 DIRECTION_FORWARD = 0
@@ -53,14 +58,10 @@ def cf_dist(x, y, dist=.05):
 wp_queue = deque([
     (-.6161,  0,DIRECTION_FORWARD, cf_bounds(maxx=-.5961)),
     (-.5461, .5,DIRECTION_FORWARD, cf_dist(-.5461, .5,.01)),
-    (-.5461,-.2,DIRECTION_REVERSE, cf_bounds(maxy=0)),
-    (-.7861,  0,DIRECTION_REVERSE, cf_bounds(maxx=-.7461)),
-    (-.4861,  0,DIRECTION_FORWARD, cf_bounds(minx=-.5161)),
-    (-.5461,-.5,DIRECTION_FORWARD, cf_dist(-.5461,-.5,.01))
 ])
 
 # To tell the outside world when we are done with our current path
-def queue_done():
+def wp_done():
     return len(wp_queue) == 0
 
 
@@ -139,4 +140,11 @@ def queue_turnin(p_bin, side):
     wp_queue.append((
         p_bin[0],  p_bin[1], DIRECTION_FORWARD,
         cf_dist(p_bin[0], p_bin[1], dist=.01)
+    ))
+def queue_goal(cur):
+    if abs(cur[1]) >= MARGIN_CENTER_BIN:
+        queue_back(cur, SIDE_NEG)
+    wp_queue.append((
+        GOAL_X + A_BS + L, 0, DIRECTION_FORWARD,
+        cf_dist(GOAL_X + A_BS + L, 0, dist=.01)
     ))
