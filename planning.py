@@ -49,10 +49,14 @@ wp_queue = deque([
     (-.6161,  0,DIRECTION_FORWARD, cf_bounds(maxx=-.5961)),
     (-.5461, .5,DIRECTION_FORWARD, cf_dist(-.5461, .5,.01)),
     (-.5461,-.2,DIRECTION_REVERSE, cf_bounds(maxy=0)),
-    (-.3561,  0,DIRECTION_REVERSE, cf_bounds(minx=-.3761)),
-    (-.6161,  0,DIRECTION_FORWARD, cf_bounds(maxx=-.5961)),
+    (-.7861,  0,DIRECTION_REVERSE, cf_bounds(maxx=-.7461)),
+    (-.4861,  0,DIRECTION_FORWARD, cf_bounds(minx=-.5161)),
     (-.5461,-.5,DIRECTION_FORWARD, cf_dist(-.5461,-.5,.01))
 ])
+
+# To tell the outside world when we are done with our current path
+def queue_done():
+    return len(wp_queue) == 0
 
 
 # Utility function to convert between domains
