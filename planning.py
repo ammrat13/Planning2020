@@ -20,6 +20,7 @@ D = .2427
 A_BS = .056
 
 MARGIN_CENTER_BIN = .2038
+SAME_BIN_MARGIN_X = .0508
 V_SCALE = 2
 OMEGA_MAX_ALLOWED = 5
 
@@ -55,10 +56,7 @@ def cf_dist(x, y, dist=.05):
 
 # A queue for all the waypoints
 # Format is (x, y, theta, doneFunc)
-wp_queue = deque([
-    (-.6161,  0,DIRECTION_FORWARD, cf_bounds(maxx=-.5961)),
-    (-.5461, .5,DIRECTION_FORWARD, cf_dist(-.5461, .5,.01)),
-])
+wp_queue = deque([])
 
 # To tell the outside world when we are done with our current path
 def wp_done():
@@ -126,16 +124,16 @@ def queue_back(cur, side):
         cf_bounds(miny=0)
     ))
     wp_queue.append((
-        cur[0] + side*.5, 0, DIRECTION_REVERSE,
-        cf_bounds(minx=cur[0]+side*.3) if side > 0 else \
-        cf_bounds(maxx=cur[0]+side*.3)
+        cur[0] + side*.35, 0, DIRECTION_REVERSE,
+        cf_bounds(minx=cur[0]+side*.25) if side > 0 else \
+        cf_bounds(maxx=cur[0]+side*.25)
     ))
 # Queues going into a bin from a certain side
 def queue_turnin(p_bin, side):
     wp_queue.append((
-        p_bin[0] + side*.7, 0, DIRECTION_FORWARD,
-        cf_bounds(maxx=p_bin[0]-side*.5) if side > 0 else \
-        cf_bounds(minx=p_bin[0]-side*.5)
+        p_bin[0] - side*.07, 0, DIRECTION_FORWARD,
+        cf_bounds(maxx=p_bin[0]-side*.05) if side > 0 else \
+        cf_bounds(minx=p_bin[0]-side*.05)
     ))
     wp_queue.append((
         p_bin[0],  p_bin[1], DIRECTION_FORWARD,
@@ -148,3 +146,16 @@ def queue_goal(cur):
         GOAL_X + A_BS + L, 0, DIRECTION_FORWARD,
         cf_dist(GOAL_X + A_BS + L, 0, dist=.01)
     ))
+def queue_bin(cur, n, off):
+    p_bin = (BIN_XS[(n-1)%5], UTIL_SIGN(n-5.5)*(BIN_YBASE + off))
+    side = SIDE_NEG if cur[0] < p_bin[0] else SIDE_POS
+
+    if not (abs(cur[1]) > MARGIN_CENTER_BIN and UTIL_SIGN(p_bin[1]) == UTIL_SIGN(cur[1]) and abs(cur[0] - p_bin[0]) <= SAME_BIN_MARGIN_X):
+        if abs(cur[1]) >= MARGIN_CENTER_BIN:
+            queue_back(cur, side)
+        queue_turnin(p_bin, side)
+    else:
+        wp_queue.append((
+            p_bin[0],  p_bin[1], DIRECTION_FORWARD,
+            cf_dist(p_bin[0], p_bin[1], dist=.01)
+        ))
