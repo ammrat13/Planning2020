@@ -25,6 +25,10 @@ OMEGA_MAX_ALLOWED = 5
 DIRECTION_FORWARD = 0
 DIRECTION_REVERSE = 1
 
+SIDE_NEG = -1
+SIDE_POS = 1
+
+
 # Should return the order the bins are to be picked in
 # Will likely be hardcoded
 def order_blocks(block_config):
@@ -110,3 +114,28 @@ def compute_wheel_velocities(cur):
             return xydot_to_w(d, cur[2], wp[2])
     except IndexError:
         return (0,0)
+
+
+# Queues backing out in a specified direction
+def queue_back(cur, side):
+    wp_queue.append((
+        cur[0], -.2*UTIL_SIGN(cur[1]), DIRECTION_REVERSE,
+        cf_bounds(maxy=0) if cur[1] > 0 else \
+        cf_bounds(miny=0)
+    ))
+    wp_queue.append((
+        cur[0] + side*.5, 0, DIRECTION_REVERSE,
+        cf_bounds(minx=cur[0]+side*.3) if side > 0 else \
+        cf_bounds(maxx=cur[0]+side*.3)
+    ))
+# Queues going into a bin from a certain side
+def queue_turnin(p_bin, side):
+    wp_queue.append((
+        p_bin[0] + side*.7, 0, DIRECTION_FORWARD,
+        cf_bounds(maxx=p_bin[0]-side*.5) if side > 0 else \
+        cf_bounds(minx=p_bin[0]-side*.5)
+    ))
+    wp_queue.append((
+        p_bin[0],  p_bin[1], DIRECTION_FORWARD,
+        cf_dist(p_bin[0], p_bin[1], dist=.01)
+    ))
