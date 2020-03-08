@@ -33,6 +33,7 @@ DIRECTION_FORWARD = 0
 DIRECTION_REVERSE = 1
 
 SIDE_NEG = -1
+SIDE_NON = 0
 SIDE_POS = 1
 
 
@@ -55,7 +56,7 @@ def cf_dist(x, y, dist=.05):
     return ret
 
 # A queue for all the waypoints
-# Format is (x, y, theta, doneFunc)
+# Format is (x, y, direction, doneFunc)
 wp_queue = deque([])
 
 # To tell the outside world when we are done with our current path
@@ -116,52 +117,85 @@ def compute_wheel_velocities(cur):
         return (0,0)
 
 
+# Queues driving directly toward a given goal position
+def queue_direct(goal):
+    global wp_queue
+
+    # We stop when we are a hardcoded distance away
+    wp_queue.append((
+        goal[0],  goal[1], DIRECTION_FORWARD,
+        cf_dist(goal[0], goal[1], dist=.01)
+    ))
+
 # Queues backing out in a specified direction
 def queue_back(cur, side):
-    wp_queue.append((
-        cur[0], -.2*UTIL_SIGN(cur[1]), DIRECTION_REVERSE,
-        cf_bounds(maxy=0) if cur[1] > 0 else \
-        cf_bounds(miny=0)
-    ))
-    wp_queue.append((
-        cur[0] + side*.30, 0, DIRECTION_REVERSE,
-        cf_bounds(minx=cur[0]+side*.20) if side > 0 else \
-        cf_bounds(maxx=cur[0]+side*.20)
-    ))
-# Queues going into a bin from a certain side
-def queue_turnin(p_bin, side):
-    wp_queue.append((
-        p_bin[0] - side*.07, 0, DIRECTION_FORWARD,
-        cf_bounds(maxx=p_bin[0]-side*.05) if side > 0 else \
-        cf_bounds(minx=p_bin[0]-side*.05)
-    ))
-    wp_queue.append((
-        p_bin[0],  p_bin[1], DIRECTION_FORWARD,
-        cf_dist(p_bin[0], p_bin[1], dist=.01)
-    ))
-def queue_goal(cur):
-    if abs(cur[1]) >= MARGIN_CENTER_BIN:
-        queue_back(cur, SIDE_NEG)
-    wp_queue.append((
-        GOAL_X + A_BS + L, 0, DIRECTION_FORWARD,
-        cf_dist(GOAL_X + A_BS + L, 0, dist=.01)
-    ))
-def queue_bin(cur, n, off):
-    p_bin = (BIN_XS[(n-1)%5], UTIL_SIGN(n-5.5)*(BIN_YBASE + off))
-    side = SIDE_NEG if cur[0] < p_bin[0] else SIDE_POS
+    global wp_queue
+    sy = UTIL_SIGN(cur[1])
 
-    if not (abs(cur[1]) > MARGIN_CENTER_BIN and UTIL_SIGN(p_bin[1]) == UTIL_SIGN(cur[1]) and abs(cur[0] - p_bin[0]) <= SAME_BIN_MARGIN_X):
-        if abs(cur[1]) >= MARGIN_CENTER_BIN and abs(cur[0] - p_bin[0]) <= SAME_BIN_MARGIN_X:
-            queue_back(cur, side)
-        elif abs(cur[1]) >= MARGIN_CENTER_BIN:
-            wp_queue.append((
-                cur[0], -.2*UTIL_SIGN(cur[1]), DIRECTION_REVERSE,
-                cf_bounds(maxy=0) if cur[1] > 0 else \
-                cf_bounds(miny=0)
-            ))
-        queue_turnin(p_bin, side)
+    # Only back out, don't turn while doing so
+    if side == SIDE_NON:
+        wp_queue.append((
+            cur[0], -.2*sy, DIRECTION_REVERSE,
+            cf_bounds(maxy=-.1*sy) if sy > 0 else \
+            cf_bounds(miny=-.1*sy)
+        ))
+
+    # If we need to turn in a direction
+    # Use constants to determine how much to offset
+    # TODO: Fine tune constants
     else:
         wp_queue.append((
-            p_bin[0],  p_bin[1], DIRECTION_FORWARD,
-            cf_dist(p_bin[0], p_bin[1], dist=.01)
+            cur[0], -.2*sy, DIRECTION_REVERSE,
+            cf_bounds(maxy=0) if sy > 0 else \
+            cf_bounds(miny=0)
         ))
+        wp_queue.append((
+            cur[0] + side*.30, 0, DIRECTION_REVERSE,
+            cf_bounds(minx=cur[0]+side*.20) if side > 0 else \
+            cf_bounds(maxx=cur[0]+side*.20)
+        ))
+
+# Queues going into a bin from a certain side
+def queue_turnin(p_bin, side):
+    global wp_queue
+
+    # If we are approaching from a side, go outside the bin first
+    if side != SIDE_NON:
+        wp_queue.append((
+            p_bin[0] - side*.07, 0, DIRECTION_FORWARD,
+            cf_bounds(maxx=p_bin[0]-side*.05) if side > 0 else \
+            cf_bounds(minx=p_bin[0]-side*.05)
+        ))
+
+    # Always actually go into the bin
+    queue_direct(p_bin)
+
+# Queue going to the end position from our current
+def queue_end(cur):
+    global wp_queue
+
+    # Only back out of the bin if we are in a bin
+    if abs(cur[1]) >= MARGIN_CENTER_BIN:
+        queue_back(cur, SIDE_NON)
+
+    # Go to the goal
+    queue_direct((GOAL_X, A_BS + L, 0))
+
+# Queue going from our current position to an offset inside a bin
+# Note that the bins are ONE INDEXED for consistency with the Colab Notebook
+def queue_bin(cur, n, off):
+    global wp_queue
+    # The position we are going to inside the bin
+    p_bin = (BIN_XS[(n-1)%5], UTIL_SIGN(n-5.5)*(BIN_YBASE + off))
+    # The side we are approaching the bin from
+    side_turnin = SIDE_NEG if cur[0] < p_bin[0] else SIDE_POS
+    # Depends on whether we need to turn out
+    side_back = SIDE_NON if abs(cur[0]-p_bin[0]) < SAME_BIN_MARGIN_X else side_turnin
+
+    # Check if we are already in the correct bin
+    # If we are in a bin on the right side and in the right lane
+    if abs(cur[1]) > MARGIN_CENTER_BIN and UTIL_SIGN(cur[1]) == UTIL_SIGN(p_bin[1]) and abs(cur[0]-p_bin[0]) <= SAME_BIN_MARGIN_X:
+        queue_direct(p_bin)
+    else:
+        queue_back(cur, side_back)
+        queue_turnin(cur, side_turnin)
