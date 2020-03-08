@@ -133,6 +133,8 @@ def queue_back(cur, side):
     sy = UTIL_SIGN(cur[1])
 
     # Only back out, don't turn while doing so
+    # Use constants to determine how much to offset
+    # TODO: Fine tune constants
     if side == SIDE_NON:
         wp_queue.append((
             cur[0], -.2*sy, DIRECTION_REVERSE,
@@ -141,7 +143,6 @@ def queue_back(cur, side):
         ))
 
     # If we need to turn in a direction
-    # Use constants to determine how much to offset
     # TODO: Fine tune constants
     else:
         wp_queue.append((
