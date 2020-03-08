@@ -156,8 +156,10 @@ def queue_back(cur, side):
         ))
 
 # Queues going into a bin from a certain side
-def queue_turnin(p_bin, side):
+def queue_turnin(p_bin, side, off):
     global wp_queue
+    # Compute with added offset
+    p_bin_off = (p_bin[0], p_bin[1] + off * UTIL_SIGN(p_bin[1]))
 
     # If we are approaching from a side, go outside the bin first
     if side != SIDE_NON:
@@ -168,7 +170,9 @@ def queue_turnin(p_bin, side):
         ))
 
     # Always actually go into the bin
+    # Go just outside, then offset into it
     queue_direct(p_bin)
+    queue_direct(p_bin_off)
 
 # Queue going to the end position from our current
 def queue_end(cur):
@@ -179,6 +183,7 @@ def queue_end(cur):
         queue_back(cur, SIDE_NON)
 
     # Go to the goal
+    queue_direct((GOAL_X - L, 0))
     queue_direct((GOAL_X + A_BS + L, 0))
 
 # Queue going from our current position to an offset inside a bin
@@ -186,7 +191,7 @@ def queue_end(cur):
 def queue_bin(cur, n, off):
     global wp_queue
     # The position we are going to inside the bin
-    p_bin = (BIN_XS[(n-1)%5], UTIL_SIGN(n-5.5)*(BIN_YBASE + off))
+    p_bin = (BIN_XS[(n-1)%5], UTIL_SIGN(n-5.5)*(BIN_YBASE))
     # The side we are approaching the bin from
     side_turnin = SIDE_NEG if cur[0] < p_bin[0] else SIDE_POS
     # Depends on whether we need to turn out
@@ -200,4 +205,4 @@ def queue_bin(cur, n, off):
         # Only back up if we need to
         if abs(cur[1]) > MARGIN_CENTER_BIN:
             queue_back(cur, side_back)
-        queue_turnin(p_bin, side_turnin)
+        queue_turnin(p_bin, side_turnin, off)
