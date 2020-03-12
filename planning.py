@@ -216,6 +216,9 @@ def queue_end(cur):
 def queue_bin(cur, n, off):
     global wp_queue
 
+    # Make sure to add in the robot's constants
+    off += A_BS + L
+
     # If the index is not a bin, go to end
     if n <= 0 or n >= 11:
         queue_end(cur)
