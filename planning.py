@@ -71,10 +71,10 @@ def xydot_to_w(v, curT, dire):
     xDotTarg, yDotTarg = v
 
     # Compute matrix coefficients
-    xDotC0 = R/2 * cos(curT) + R*L/D * sin(curT)
-    xDotC1 = R/2 * cos(curT) - R*L/D * sin(curT)
-    yDotC0 = R/2 * sin(curT) - R*L/D * cos(curT)
-    yDotC1 = R/2 * sin(curT) + R*L/D * cos(curT)
+    xDotC0 = R/2 * cos(curT) - R*L/D * sin(curT)
+    xDotC1 = R/2 * cos(curT) + R*L/D * sin(curT)
+    yDotC0 = R/2 * sin(curT) + R*L/D * cos(curT)
+    yDotC1 = R/2 * sin(curT) - R*L/D * cos(curT)
 
     # Invert the matrix
     matDetInv = 1 / (xDotC0*yDotC1 - xDotC1*yDotC0)
@@ -86,7 +86,7 @@ def xydot_to_w(v, curT, dire):
     wR *= OMEGA_MAX_ALLOWED / max(wMax, 1)
     wL *= OMEGA_MAX_ALLOWED / max(wMax, 1)
 
-    return (wR, wL) if dire == DIRECTION_FORWARD else (-wL, -wR)
+    return (wL, wR) if dire == DIRECTION_FORWARD else (-wR, -wL)
 
 # Utility function just to turn us around
 def match_pose_to_dir(v, dire):
@@ -189,21 +189,28 @@ def queue_end(cur):
 
 # Queue going from our current position to an offset inside a bin
 # Note that the bins are ONE INDEXED for consistency with the Colab Notebook
+# Also calling this with an invalid index results in calling queue_end
 def queue_bin(cur, n, off):
     global wp_queue
-    # The position we are going to inside the bin
-    p_bin = (BIN_XS[(n-1)%5], UTIL_SIGN(n-5.5)*(BIN_YBASE))
-    # The side we are approaching the bin from
-    side_turnin = SIDE_NEG if cur[0] < p_bin[0] else SIDE_POS
-    # Depends on whether we need to turn out
-    side_back = side_turnin if abs(cur[0]-p_bin[0]) < SAME_BIN_MARGIN_X else SIDE_NON
 
-    # Check if we are already in the correct bin
-    # If we are in a bin on the right side and in the right lane
-    if abs(cur[1]) > MARGIN_CENTER_BIN and UTIL_SIGN(cur[1]) == UTIL_SIGN(p_bin[1]) and abs(cur[0]-p_bin[0]) <= SAME_BIN_MARGIN_X:
-        queue_direct(p_bin)
+    # If the index is not a bin, go to end
+    if n <= 0 or n >= 11:
+        queue_end(cur)
+
     else:
-        # Only back up if we need to
-        if abs(cur[1]) > MARGIN_CENTER_BIN:
-            queue_back(cur, side_back)
-        queue_turnin(p_bin, side_turnin, off)
+        # The position we are going to inside the bin
+        p_bin = (BIN_XS[(n-1)%5], UTIL_SIGN(n-5.5)*(BIN_YBASE))
+        # The side we are approaching the bin from
+        side_turnin = SIDE_NEG if cur[0] < p_bin[0] else SIDE_POS
+        # Depends on whether we need to turn out
+        side_back = side_turnin if abs(cur[0]-p_bin[0]) < SAME_BIN_MARGIN_X else SIDE_NON
+
+        # Check if we are already in the correct bin
+        # If we are in a bin on the right side and in the right lane
+        if abs(cur[1]) > MARGIN_CENTER_BIN and UTIL_SIGN(cur[1]) == UTIL_SIGN(p_bin[1]) and abs(cur[0]-p_bin[0]) <= SAME_BIN_MARGIN_X:
+            queue_direct(p_bin)
+        else:
+            # Only back up if we need to
+            if abs(cur[1]) > MARGIN_CENTER_BIN:
+                queue_back(cur, side_back)
+            queue_turnin(p_bin, side_turnin, off)
